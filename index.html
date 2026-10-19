@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timebook – Worker Time Tracker</title>
+<style>
+:root{
+  --bg:#f3f1ff;--card:#fff;--ink:#1f1b3a;--muted:#7a7699;
+  --p1:#6c5ce7;--p2:#00b8a9;--ok:#16c784;--bad:#ff5e6c;--warn:#ffb020;
+  --line:#ebe8fb;--shadow:0 10px 30px rgba(108,92,231,.12);
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#14122b;--card:#1e1b3d;--ink:#f1efff;--muted:#a29fc6;--line:#2f2b57;--shadow:0 10px 30px rgba(0,0,0,.35)}
+}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.top{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;
+  background:linear-gradient(120deg,var(--p1),var(--p2));color:#fff;box-shadow:var(--shadow)}
+.logo{font-size:1.4rem;font-weight:800;letter-spacing:.5px}
+.who{display:flex;gap:10px;align-items:center;font-weight:600}
+.avatar{width:36px;height:36px;border-radius:50%;background:#ffffff33;display:grid;place-items:center;font-size:.8rem}
+main{max-width:980px;margin:24px auto;padding:0 16px;display:grid;gap:20px}
+.card{background:var(--card);border-radius:20px;padding:22px;box-shadow:var(--shadow)}
+.muted{color:var(--muted);font-size:.9rem}.center{text-align:center;padding:20px}
+.clock{text-align:center;background:linear-gradient(160deg,var(--card),var(--line))}
+#time{font-size:clamp(2.6rem,10vw,4.5rem);font-variant-numeric:tabular-nums;
+  background:linear-gradient(120deg,var(--p1),var(--p2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:6px 0 14px}
+.row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.row>*{flex:1;min-width:140px}
+select,input{padding:12px 14px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:1rem;outline:none}
+select:focus,input:focus{border-color:var(--p1)}
+.btn{border:0;border-radius:14px;padding:14px 20px;font-size:1.05rem;font-weight:700;color:#fff;cursor:pointer;transition:.2s}
+.btn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.in{background:linear-gradient(120deg,var(--ok),var(--p2))}
+.out{background:linear-gradient(120deg,var(--bad),#ff8a5c)}
+.brk{background:linear-gradient(120deg,var(--warn),#ffd166);color:#3b2a00}
+.small{padding:8px 14px;font-size:.85rem;background:var(--p1)}
+.ghost{background:transparent;color:var(--bad);border:2px solid var(--bad)}
+.status{display:inline-block;margin-top:4px;padding:6px 14px;border-radius:99px;font-weight:600;font-size:.9rem}
+.on{background:#16c78425;color:var(--ok);animation:pulse 2s infinite}
+.off{background:var(--line);color:var(--muted)}
+.status.brk{background:#ffb02025;color:var(--warn)}
+@keyframes pulse{50%{opacity:.6}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.stat span{color:var(--muted);font-size:.85rem;display:block}
+.stat b{font-size:1.6rem;display:block;margin-top:4px}
+.bar{height:12px;background:var(--line);border-radius:99px;margin-top:14px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--p1),var(--p2));transition:width .6s}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.head .btn+.btn{margin-left:6px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th{text-align:left;color:var(--muted);font-size:.8rem;text-transform:uppercase;padding:10px;border-bottom:2px solid var(--line)}
+td{padding:12px 10px;border-bottom:1px solid var(--line)}
+tr:hover td{background:var(--line)}
+.tag{background:var(--p1);color:#fff;padding:3px 10px;border-radius:99px;font-size:.78rem}
+.x{background:none;border:0;color:var(--bad);cursor:pointer;font-size:1rem}
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px);background:var(--ink);color:var(--bg);
+  padding:12px 22px;border-radius:99px;transition:.3s;opacity:0}
+#toast.show{transform:translate(-50%,0);opacity:1}
+
+.tabs{display:flex;gap:6px}
+.tabs button{border:0;background:transparent;color:#fff;padding:8px 18px;border-radius:99px;font-weight:700;cursor:pointer;font-size:1rem}
+.tabs .active{background:#ffffff40}
+[hidden]{display:none!important}
+.pill{padding:3px 10px;border-radius:99px;font-size:.78rem;font-weight:700}
+.pill.Working,.pill.Approved{background:#16c78425;color:#0f9d63}
+.pill.Break,.pill.Pending{background:#ffb02030;color:#b87400}
+.pill.Off{background:var(--line);color:var(--muted)}
+.pill.Rejected{background:#ff5e6c25;color:var(--bad)}
+.ok,.no{border:0;border-radius:8px;color:#fff;padding:6px 12px;font-weight:700;cursor:pointer;margin-right:4px}
+.ok{background:var(--ok)}.no{background:var(--bad)}
+.bar2{height:14px;background:var(--line);border-radius:99px;overflow:hidden;flex:1}
+.bar2 i{display:block;height:100%;background:linear-gradient(90deg,var(--p1),var(--p2))}
+.prj{display:flex;align-items:center;gap:12px;margin:10px 0}.prj span{width:90px;font-size:.9rem}.prj b{width:60px;text-align:right}
+.set{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.set input{flex:1;min-width:140px}
+
+@media(max-width:640px){
+.top{flex-wrap:wrap;gap:8px;padding:12px 14px}.logo{font-size:1.15rem}
+.who{font-size:0}.who .avatar{font-size:.8rem}
+.tabs{order:3;width:100%}.tabs button{flex:1;padding:8px 10px}
+main{padding:0 10px;margin:14px auto;gap:14px}
+.card{padding:16px;border-radius:16px}
+.stats{grid-template-columns:1fr 1fr;gap:10px}.stat b{font-size:1.3rem}
+.row>select,.row>input{min-width:100%}
+.btn{padding:12px 14px}
+table{min-width:0}thead{display:none}
+tr,td{display:block}
+tr{border:1px solid var(--line);border-radius:14px;padding:6px 12px;margin-bottom:10px}
+td{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border:0}
+td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase}
+td:last-child{justify-content:flex-end}
+tr:hover td{background:none}
+.prj span{width:70px;font-size:.8rem}.prj b{width:50px;font-size:.85rem}
+.set input{min-width:100%;max-width:none!important}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo">⏱ Timebook</div>
+  <nav class="tabs"><button id="tWork" class="active">My Time</button><button id="tAdmin">Admin</button></nav>
+  <div class="who"><span class="avatar" id="av">?</span> <span id="wn">Guest</span></div>
+</header>
+
+<main id="worker">
+  <section class="card clock">
+    <p id="date" class="muted"></p>
+    <h1 id="time">00:00:00</h1>
+    <div class="row"><input id="name" placeholder="Your full name (required)" autocomplete="name"></div>
+    <div class="row">
+      <select id="project">
+        <option>General</option><option>Site Work</option><option>Admin</option><option>Meetings</option>
+      </select>
+      <input id="note" placeholder="Note (optional)">
+    </div>
+    <div class="row">
+      <button id="toggle" class="btn in">Clock In</button>
+      <button id="brk" class="btn brk" disabled>Start Break</button>
+    </div>
+    <p id="status" class="status off">Not clocked in</p>
+  </section>
+
+  <section class="stats">
+    <div class="card stat"><span>Today</span><b id="sToday">0h 00m</b></div>
+    <div class="card stat"><span>This week</span><b id="sWeek">0h 00m</b></div>
+    <div class="card stat"><span>Overtime (&gt;40h)</span><b id="sOt">0h 00m</b></div>
+    <div class="card stat"><span>Progress</span>
+      <div class="bar"><i id="bar"></i></div></div>
+  </section>
+
+  <section class="card">
+    <div class="head">
+      <h2>Timesheet</h2>
+      <div><button class="btn small" id="csv">Export CSV</button>
+      <button class="btn small ghost" id="clear">Clear</button></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Date</th><th>Project</th><th>In</th><th>Out</th><th>Break</th><th>Total</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p id="empty" class="muted center">No entries yet. Clock in to begin.</p>
+  </section>
+</main>
+<main id="admin" hidden>
+  <section class="stats">
+    <div class="card stat"><span>Clocked in</span><b id="aIn">0</b></div>
+    <div class="card stat"><span>Pending approvals</span><b id="aPend">0</b></div>
+    <div class="card stat"><span>Team hours (week)</span><b id="aHrs">0h</b></div>
+    <div class="card stat"><span>Overtime</span><b id="aOt">0h</b></div>
+  </section>
+  <section class="card">
+    <div class="head"><h2>Workers &amp; Approvals</h2><button class="btn small" id="aCsv">Export Payroll CSV</button></div>
+    <div class="scroll"><table><thead><tr><th>Worker</th><th>Status</th><th>Week</th><th>Timesheet</th><th>Action</th><th></th></tr></thead><tbody id="aRows"></tbody></table></div>
+  </section>
+  <section class="card"><h2>Hours by project</h2><div id="aPrj"></div></section>
+  <section class="card"><h2>Settings</h2>
+    <div class="set"><label>Overtime after (h)</label><input id="thr" type="number" value="40" style="max-width:100px">
+    <input id="nw" placeholder="New worker name"><button class="btn small" id="addW">Add worker</button></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let log=JSON.parse(localStorage.getItem('tb_log')||'[]');
+let cur=JSON.parse(localStorage.getItem('tb_cur')||'null');
+const save=()=>{localStorage.setItem('tb_log',JSON.stringify(log));localStorage.setItem('tb_cur',JSON.stringify(cur))};
+const p=n=>String(n).padStart(2,'0');
+const hm=ms=>{const m=Math.max(0,Math.round(ms/60000));return Math.floor(m/60)+'h '+p(m%60)+'m'};
+const clk=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const day=t=>new Date(t).toDateString();
+function toast(m){const t=$('toast');t.textContent=m;t.className='show';setTimeout(()=>t.className='',2000)}
+function net(e){return e.out-e.in-e.brk}
+function render(){
+  const my=e=>!e.name||e.name.toLowerCase()==$('name').value.trim().toLowerCase();
+  $('rows').innerHTML=log.map((e,i)=>[e,i]).filter(x=>my(x[0])).reverse().map(([e,i])=>`<tr><td data-l="Name"><b>${e.name||'-'}</b></td><td data-l="Date">${new Date(e.in).toLocaleDateString()}</td><td data-l="Project"><span class="tag">${e.project}</span></td><td data-l="In">${clk(e.in)}</td><td data-l="Out">${clk(e.out)}</td><td data-l="Break">${hm(e.brk)}</td><td data-l="Total"><b>${hm(net(e))}</b></td><td><button class="x" onclick="del(${i})">✕</button></td></tr>`).join('');
+  $('empty').style.display=log.some(my)?'none':'block';
+  const now=Date.now(),wk=now-7*864e5;
+  const live=cur?now-cur.in-cur.brk-(cur.bs?now-cur.bs:0):0;
+  const today=log.filter(e=>my(e)&&day(e.in)==day(now)).reduce((a,e)=>a+net(e),0)+live;
+  const week=log.filter(e=>my(e)&&e.in>wk).reduce((a,e)=>a+net(e),0)+live;
+  $('sToday').textContent=hm(today);$('sWeek').textContent=hm(week);
+  $('sOt').textContent=hm(Math.max(0,week-40*36e5));
+  $('bar').style.width=Math.min(100,week/(40*36e5)*100)+'%';
+  const s=$('status'),b=$('toggle');$('name').disabled=!!cur;
+  if(cur){b.textContent='Clock Out';b.className='btn out';$('brk').disabled=false;
+    $('brk').textContent=cur.bs?'End Break':'Start Break';
+    s.textContent=cur.bs?'On break ☕':'Working · since '+clk(cur.in);s.className='status '+(cur.bs?'brk':'on')}
+  else{b.textContent='Clock In';b.className='btn in';$('brk').disabled=true;$('brk').textContent='Start Break';s.textContent='Not clocked in';s.className='status off'}
+}
+$('toggle').onclick=()=>{
+  if(!cur){const nm=$('name').value.trim();if(!nm){toast('Enter your name first ✍️');$('name').focus();return}cur={name:nm,in:Date.now(),brk:0,bs:0,project:$('project').value,note:$('note').value};toast('Clocked in ✅')}
+  else{if(cur.bs){cur.brk+=Date.now()-cur.bs}log.push({...cur,out:Date.now()});cur=null;toast('Clocked out 👋')}
+  save();render();window.sync&&sync()};
+$('brk').onclick=()=>{if(cur.bs){cur.brk+=Date.now()-cur.bs;cur.bs=0}else cur.bs=Date.now();save();render();window.sync&&sync()};
+window.del=i=>{log.splice(i,1);save();render();window.sync&&sync()};
+$('clear').onclick=()=>{if(confirm('Delete all entries?')){log=[];save();render();window.sync&&sync()}};
+$('csv').onclick=()=>{
+  const r=[['Name','Date','Project','In','Out','Break(min)','Total(h)','Note']].concat(log.map(e=>[e.name||'',new Date(e.in).toLocaleDateString(),e.project,clk(e.in),clk(e.out),Math.round(e.brk/6e4),(net(e)/36e5).toFixed(2),e.note||'']));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([r.map(x=>x.join(',')).join('\n')],{type:'text/csv'}));a.download='timebook.csv';a.click()};
+setInterval(()=>{const d=new Date();$('time').textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(p).join(':');
+  $('date').textContent=d.toDateString();if(cur)render()},1000);
+$('name').value=localStorage.getItem('tb_name')||'';
+function who(){const n=$('name').value.trim();$('wn').textContent=n||'Guest';$('av').textContent=(n.split(/\s+/).map(w=>w[0]).join('').slice(0,2)||'?').toUpperCase()}
+$('name').oninput=()=>{localStorage.setItem('tb_name',$('name').value.trim());who();render()};
+who();render();
+</script>
+<script>
+const PIN='1234';let W=JSON.parse(localStorage.getItem('tb_w')||'null')||[
+{n:'Amina M.',s:'Working',h:32.2,t:'Pending',p:'Site Work'},{n:'Jon K.',s:'Break',h:38.5,t:'Pending',p:'Admin'},
+{n:'Sara L.',s:'Working',h:41.5,t:'Approved',p:'Site Work'},{n:'Omar B.',s:'Off',h:27,t:'Approved',p:'Meetings'},
+{n:'Lina T.',s:'Working',h:35,t:'Rejected',p:'General'}];
+const sv=()=>localStorage.setItem('tb_w',JSON.stringify(W)),fh=x=>x.toFixed(1)+'h';
+function aR(){const th=+$('thr').value||40;
+  $('aRows').innerHTML=W.map((w,i)=>`<tr><td data-l="Worker"><b>${w.n}</b></td><td data-l="Status"><span class="pill ${w.s}">${w.s}</span></td><td data-l="Week">${fh(w.h)}</td><td data-l="Timesheet"><span class="pill ${w.t}">${w.t}</span></td><td><button class="ok" onclick="st(${i},'Approved')">Approve</button><button class="no" onclick="st(${i},'Rejected')">Reject</button></td><td><button class="x" onclick="rm(${i})">✕</button></td></tr>`).join('');
+  $('aIn').textContent=W.filter(w=>w.s!='Off').length+' / '+W.length;
+  $('aPend').textContent=W.filter(w=>w.t=='Pending').length;
+  $('aHrs').textContent=fh(W.reduce((a,w)=>a+w.h,0));
+  $('aOt').textContent=fh(W.reduce((a,w)=>a+Math.max(0,w.h-th),0));
+  const P={};W.forEach(w=>P[w.p]=(P[w.p]||0)+w.h);const mx=Math.max(...Object.values(P),1);
+  $('aPrj').innerHTML=Object.entries(P).map(([k,v])=>`<div class="prj"><span>${k}</span><div class="bar2"><i style="width:${v/mx*100}%"></i></div><b>${fh(v)}</b></div>`).join('')}
+window.st=(i,s)=>{W[i].t=s;sv();aR();toast(W[i].n+': '+s)};
+window.rm=i=>{if(confirm('Remove '+W[i].n+'?')){W.splice(i,1);sv();aR()}};
+$('addW').onclick=()=>{const n=$('nw').value.trim();if(n){W.push({n,s:'Off',h:0,t:'Pending',p:'General'});$('nw').value='';sv();aR()}};
+$('thr').oninput=aR;
+$('aCsv').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([['Worker,Hours,Timesheet'].concat(W.map(w=>[w.n,w.h,w.t])).join('\n')],{type:'text/csv'}));a.download='payroll.csv';a.click()};
+window.sync=()=>{const n=$('name').value.trim();if(!n)return;let w=W.find(x=>x.n.toLowerCase()==n.toLowerCase());
+  if(!w){w={n,s:'Off',h:0,t:'Pending',p:'General'};W.push(w)}
+  const wk=Date.now()-7*864e5;w.h=Math.round(log.filter(e=>e.in>wk&&(e.name||'').toLowerCase()==n.toLowerCase()).reduce((a,e)=>a+net(e),0)/36e4)/10;
+  w.s=cur?(cur.bs?'Break':'Working'):'Off';if(cur)w.p=cur.project;if(!cur)w.t='Pending';sv();if(!$('admin').hidden)aR()};
+let auth=false;
+function tab(a){if(a&&!auth){if(prompt('Admin PIN (demo: 1234)')!==PIN)return;auth=true}
+  $('worker').hidden=a;$('admin').hidden=!a;$('tWork').classList.toggle('active',!a);$('tAdmin').classList.toggle('active',a);if(a)aR()}
+$('tWork').onclick=()=>tab(false);$('tAdmin').onclick=()=>tab(true);
+</script>
+</body>
+</html>
